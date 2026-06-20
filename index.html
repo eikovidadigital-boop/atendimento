@@ -91,6 +91,7 @@
 <script>
   // ====== CONFIGURAÇÃO — cole aqui o ID do seu app Meta ======
   const APP_ID = "1671286300868909";
+  const CONFIG_ID = "991382373778447";
   const API_VER = "v25.0";
   // ==========================================================
 
@@ -107,7 +108,7 @@
     FB.login(function(r){
       if(r.authResponse){ carregarConta(); }
       else { mostrarErro("Login não concluído."); }
-    }, {scope:'instagram_basic,instagram_manage_messages,pages_show_list,pages_read_engagement,pages_messaging,business_management'});
+    }, {config_id:CONFIG_ID});
   }
 
   function sair(){ FB.logout(function(){ location.reload(); }); }
@@ -127,20 +128,26 @@
   }
 
   function carregarConversas(){
+    const box = document.getElementById('convs');
+    box.innerHTML='<div class="vazio">Carregando conversas...</div>';
     FB.api(`/${PAGE_ID}/conversations`, {platform:'instagram', access_token:PAGE_TOKEN,
-      fields:'participants,updated_time,messages.limit(1){message}'}, function(res){
-      if(res.error){ return mostrarErro(res.error.message); }
-      const box = document.getElementById('convs'); box.innerHTML='';
+      fields:'participants,updated_time', limit:25}, function(res){
+      if(!res || res.error){
+        const e = (res && res.error) ? res.error : {message:'sem resposta da API'};
+        const det = 'code: '+(e.code||'?')+'\nsubcode: '+(e.error_subcode||'-')+'\ntype: '+(e.type||'-')+'\n\n'+(e.message||'');
+        box.innerHTML = '<div style="padding:16px;color:#a12a2a;font-size:12px;white-space:pre-wrap;line-height:1.5">Erro ao buscar conversas:\n\n'+det+'</div>';
+        return mostrarErro(e.message||'erro');
+      }
+      box.innerHTML='';
       (res.data||[]).forEach(function(c){
         const outro = (c.participants?.data||[]).find(p=>p.id!==IG_ID) || {};
-        const previa = c.messages?.data?.[0]?.message || '(sem texto)';
         const div = document.createElement('div');
         div.className='conv';
-        div.innerHTML = `<div class="nome">${outro.username||outro.name||'Cliente'}</div><div class="previa">${previa}</div>`;
+        div.innerHTML = `<div class="nome">${outro.username||outro.name||'Cliente'}</div><div class="previa">Toque para ver as mensagens</div>`;
         div.onclick = ()=>abrirConversa(c.id, outro, div);
         box.appendChild(div);
       });
-      if(!(res.data||[]).length){ box.innerHTML='<div class="vazio">Nenhuma conversa ainda.</div>'; }
+      if(!(res.data||[]).length){ box.innerHTML='<div class="vazio">Nenhuma conversa retornada.<br><br>Envie uma DM de teste para @eikovida de outra conta e recarregue a página.</div>'; }
     });
   }
 
